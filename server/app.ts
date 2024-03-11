@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import {ErrorMiddleware} from './middleware/error';
 require('dotenv').config();
 export const app = express();
 
@@ -25,3 +26,6 @@ app.get('/test', (req:Request, res:Response,next:NextFunction) => {
 app.use('*', (req:Request, res:Response, next:NextFunction) => {
     res.status(404).json({message: 'Route not found'});
 });
+
+
+app.use(ErrorMiddleware);
