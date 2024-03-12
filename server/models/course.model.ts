@@ -1,13 +1,11 @@
-import mongoose from 'mongoose';
-import { IUser } from './user.model';
+import mongoose from "mongoose";
+import { IUser } from "./user.model";
 
 interface IComment extends mongoose.Document {
     user: IUser;
     comment: string;
     commentReplies?: IComment[];
 }
-
-
 
 interface IReview extends mongoose.Document {
     user: IUser;
@@ -40,11 +38,11 @@ interface ICourse extends mongoose.Document {
     price: number;
     estimatedPrice?: number;
     thumbnail: object;
-    tags : string;
+    tags: string;
     level: string;
     demoUrl: string;
-    benefits: {title: string}[];
-    prerequisites: {title: string}[];
+    benefits: { title: string }[];
+    prerequisites: { title: string }[];
     reviews: IReview[];
     courseData: ICourseData;
     rating?: number;
@@ -52,8 +50,8 @@ interface ICourse extends mongoose.Document {
 }
 
 const reviewSchema = new mongoose.Schema<IReview>({
-    user : Object,
-    rating: {type: Number, default: 0},
+    user: Object,
+    rating: { type: Number, default: 0 },
     comment: String,
 });
 
@@ -66,14 +64,12 @@ const commentSchema = new mongoose.Schema<IComment>({
     user: Object,
     comment: String,
     commentReplies: Object,
-
 });
 
 const courseDataSchema = new mongoose.Schema<ICourseData>({
     title: String,
     description: String,
     videoUrl: String,
-    videoThumbnail: Object,
     videoSection: String,
     videoLength: Number,
     videoPlayer: String,
@@ -82,20 +78,17 @@ const courseDataSchema = new mongoose.Schema<ICourseData>({
     links: [linkSchema],
 });
 
-
 const courseSchema = new mongoose.Schema<ICourse>({
-    name: {type: String, required: true},
-    description: {type: String, required: true},
-    price: {type: Number, required: true},
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    price: { type: Number, required: true },
     estimatedPrice: Number,
     thumbnail: {
         public_id: {
             type: String,
-            required: true,
         },
         url: {
             type: String,
-            required: true,
         },
     },
     tags: {
@@ -110,14 +103,14 @@ const courseSchema = new mongoose.Schema<ICourse>({
         type: String,
         required: true,
     },
-    benefits: [{title: String}],
-    prerequisites: [{title: String}],
+    benefits: [{ title: String }],
+    prerequisites: [{ title: String }],
     reviews: [reviewSchema],
     courseData: [courseDataSchema],
-    rating: {type: Number, default: 0},
-    purchased: {type: Number, default: 0},
+    rating: { type: Number, default: 0 },
+    purchased: { type: Number, default: 0 },
 });
 
-const CourseModel = mongoose.model<ICourse>('Course', courseSchema);
+const CourseModel = mongoose.model<ICourse>("Course", courseSchema);
 
 export default CourseModel;
