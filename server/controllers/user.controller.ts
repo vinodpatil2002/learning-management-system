@@ -2,12 +2,19 @@ import { Request, Response, NextFunction } from "express";
 import userModel, { IUser } from "../models/user.model";
 import errorHandler from "../utils/errorHandler";
 import { catchAsyncError } from "../middleware/catchAsyncErrors";
-import jwt, { Secret } from "jsonwebtoken";
+import jwt, { JwtPayload, Secret } from "jsonwebtoken";
 import ejs from "ejs";
 import path from "path";
 import sendMail from "../utils/sendMail";
 import { nextTick } from "process";
-import { sendToken } from "../utils/jwt";
+import {
+    accessTokenOptions,
+    refreshTokenOptions,
+    sendToken,
+} from "../utils/jwt";
+import { redis } from "../utils/redis";
+import { get } from "http";
+import { getUserById } from "../services/user.services";
 require("dotenv").config();
 //  register user
 
@@ -154,10 +161,105 @@ export const logoutUser = catchAsyncError(
             res.cookie("refresh_token", "", {
                 maxAge: 1,
             });
+            const userId = req.user?._id || "";
+            redis.del(userId);
             res.status(200).json({
                 success: true,
                 message: "Logged out successfully",
             });
+        } catch (error: any) {
+            return next(new errorHandler(error.message, 400));
+        }
+    }
+);
+
+// update access token
+
+export const updateAccessToken = catchAsyncError(
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const refresh_token = req.cookies.refresh_token;
+            if (!refresh_token) {
+                return next(
+                    new errorHandler(
+                        "Please login to access this resource",
+                        401
+                    )
+                );
+            }
+            const decoded = jwt.verify(
+                refresh_token,
+                process.env.REFRESH_TOKEN as Secret
+            ) as JwtPayload;
+            const message = "Could not update access token";
+            if (!decoded) {
+                return next(new errorHandler("User not found", 404));
+            }
+            const session = await redis.get(decoded.id as string);
+            if (!session) {
+                return next(new errorHandler(message, 404));
+            }
+            const user = JSON.parse(session);
+            const accessToken = jwt.sign(
+                { id: user._id },
+                process.env.ACCESS_TOKEN as string,
+                {
+                    expiresIn: "5m",
+                }
+            );
+            const refreshToken = jwt.sign(
+                { id: user._id },
+                process.env.REFRESH_TOKEN as string,
+                {
+                    expiresIn: "7d",
+                }
+            );
+            res.cookie("access_token", accessToken, accessTokenOptions as any);
+            res.cookie(
+                "refresh_token",
+                refreshToken,
+                refreshTokenOptions as any
+            );
+            res.status(200).json({
+                success: true,
+                accessToken,
+            });
+        } catch (error: any) {
+            return next(new errorHandler(error.message, 400));
+        }
+    }
+);
+
+// get user details
+export const getUserInfo = catchAsyncError(
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const userId = req.user?._id;
+            getUserById(userId, res);
+        } catch (error: any) {
+            return next(new errorHandler(error.message, 400));
+        }
+    }
+);
+
+interface ISocialAuthBody {
+    name: string;
+    email: string;
+    avatar: string;
+}
+
+// social auth
+export const socialAuth = catchAsyncError(
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { name, email, avatar } = req.body as ISocialAuthBody;
+            const user = await userModel.findOne({ email });
+            if (!user) {
+                const newUser = await userModel.create({ name, email, avatar });
+                sendToken(newUser, 200, res);
+            } else {
+                sendToken(user, 200, res);
+            }
         } catch (error: any) {
             return next(new errorHandler(error.message, 400));
         }
