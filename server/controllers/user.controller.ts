@@ -6,14 +6,13 @@ import jwt, { JwtPayload, Secret } from "jsonwebtoken";
 import ejs from "ejs";
 import path from "path";
 import sendMail from "../utils/sendMail";
-import { nextTick } from "process";
+import cloudinary from "cloudinary";
 import {
     accessTokenOptions,
     refreshTokenOptions,
     sendToken,
 } from "../utils/jwt";
 import { redis } from "../utils/redis";
-import { get } from "http";
 import { getUserById } from "../services/user.services";
 require("dotenv").config();
 //  register user
@@ -305,7 +304,6 @@ export const updateUserInfo = catchAsyncError(
     }
 );
 
-
 // update user password
 
 interface IUpdatePassword {
@@ -317,11 +315,15 @@ export const updatePassword = catchAsyncError(
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { oldPassword, newPassword }: IUpdatePassword = req.body;
-            if(!oldPassword || !newPassword) {
-                return next(new errorHandler("Please enter old and new password", 400));
+            if (!oldPassword || !newPassword) {
+                return next(
+                    new errorHandler("Please enter old and new password", 400)
+                );
             }
-            const user = await userModel.findById(req.user?._id).select("+password");
-            if(user?.password === undefined) {
+            const user = await userModel
+                .findById(req.user?._id)
+                .select("+password");
+            if (user?.password === undefined) {
                 return next(new errorHandler("User not found", 404));
             }
             const isPasswordMatch = await user?.comparePassword(oldPassword);
@@ -337,9 +339,69 @@ export const updatePassword = catchAsyncError(
                 message: "Password updated successfully",
                 user,
             });
-
-        } catch (error : any) {
+        } catch (error: any) {
             return next(new errorHandler(error.message, 400));
         }
+    }
+);
 
-    });
+// update prpfile picture
+interface IUpdateProfilePicture {
+    avatar: string;
+}
+
+export const updateProfilePicture = catchAsyncError(
+    async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { avatar } = req.body;
+
+            const userId = req.user?._id;
+
+            const user = await userModel.findById(userId);
+
+            if (avatar && user) {
+                if (user?.avatar?.public_id) {
+                    await cloudinary.v2.uploader.destroy(
+                        user?.avatar?.public_id
+                    );
+
+                    const myCloud = await cloudinary.v2.uploader.upload(
+                        avatar,
+                        {
+                            folder: "avatars",
+                            width: 150,
+                        }
+                    );
+                    user.avatar = {
+                        public_id: myCloud.public_id,
+                        url: myCloud.secure_url,
+                    };
+                } else {
+                    const myCloud = await cloudinary.v2.uploader.upload(
+                        avatar,
+                        {
+                            folder: "avatars",
+                            width: 150,
+                        }
+                    );
+
+                    user.avatar = {
+                        public_id: myCloud.public_id,
+                        url: myCloud.secure_url,
+                    };
+                }
+            }
+
+            await user?.save();
+
+            await redis.set(userId, JSON.stringify(user));
+
+            res.status(200).json({
+                success: true,
+                user,
+            });
+        } catch (error: any) {
+            return next(new errorHandler(error.message, 400));
+        }
+    }
+);
