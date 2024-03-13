@@ -53,6 +53,7 @@ const reviewSchema = new mongoose.Schema<IReview>({
     user: Object,
     rating: { type: Number, default: 0 },
     comment: String,
+    commentReplies  : [Object],
 });
 
 const linkSchema = new mongoose.Schema<ILink>({
