@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import { editCourse, getAllCourses, getSingleCourse, uploadCourse } from "../controllers/course.controller";
+import { addQuestion, editCourse, getAllCourses, getCourseByUser, getSingleCourse, uploadCourse } from "../controllers/course.controller";
 import { authorizeRoles, isAuthenticated } from "../middleware/auth";
 import { get } from "http";
 
@@ -23,6 +23,15 @@ router.get(
 router.get(
     "/get-courses",
     getAllCourses
+);
+router.get(
+    "/get-course-content/:id",
+    getCourseByUser
+);
+router.put(
+    "/add-question",
+    isAuthenticated,
+    addQuestion
 );
 
 export default router;
